@@ -10,7 +10,7 @@ body:
 
 {
     "name": "sdfsdfs",
-    "anchorId": "sdufsifjsf"
+    "anchorId": "adfsw"
 }
 
 reply:

@@ -16,5 +16,11 @@ namespace SampleXamarin
         DeleteLocatedANchors,// the session will delete found anchors
         StopSession,         // the session will stop and be cleaned up
         EnterAnchorNumber,   // sharing: enter an anchor to find
+
+        // custom
+        MindrStart,
+        MindrName,
+        MindrCreate,
+        MindrSaving
     }
 }

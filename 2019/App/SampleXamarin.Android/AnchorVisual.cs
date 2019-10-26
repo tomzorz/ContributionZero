@@ -32,7 +32,7 @@ namespace SampleXamarin
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                this.nodeRenderable = ShapeFactory.MakeSphere(0.1f, new Vector3(0.0f, 0.15f, 0.0f), this.colorMaterial);
+                this.nodeRenderable = ShapeFactory.MakeSphere(0.05f, new Vector3(0.0f, 0.15f, 0.0f), this.colorMaterial);
                 this.AnchorNode.Renderable = this.nodeRenderable;
                 this.AnchorNode.SetParent(arFragment.ArSceneView.Scene);
 

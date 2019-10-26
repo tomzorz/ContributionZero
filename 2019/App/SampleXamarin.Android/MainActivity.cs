@@ -25,11 +25,11 @@ namespace SampleXamarin
                 return;
             }
 
-            // Set our view from the "main" layout resource
-            this.SetContentView(Resource.Layout.activity_main);
-
             OnSharedDemoClick(this, null);
             return;
+
+            // Set our view from the "main" layout resource
+            //this.SetContentView(Resource.Layout.activity_main);
 
             Button basicDemoButton = this.FindViewById<Button>(Resource.Id.arBasicDemo);
             basicDemoButton.Click += this.OnBasicDemoClick;

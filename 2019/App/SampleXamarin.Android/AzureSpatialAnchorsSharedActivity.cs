@@ -17,6 +17,7 @@ using SampleXamarin.AnchorSharing;
 using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Plugin.Clipboard;
 
 namespace SampleXamarin
 {
@@ -60,6 +61,13 @@ namespace SampleXamarin
         private ArSceneView sceneView;
 
         private TextView textView;
+
+        private readonly MindrService.MindrService _mindrService;
+
+        public AzureSpatialAnchorsSharedActivity()
+        {
+            _mindrService = new MindrService.MindrService();
+        }
 
         protected override void OnDestroy()
         {
@@ -128,9 +136,11 @@ namespace SampleXamarin
             this.locateButton.Click += this.OnLocateButtonClicked;
             this.createButton = (Button)this.FindViewById(Resource.Id.createButton);
             this.createButton.Click += this.OnCreateButtonClicked;
-            createButton.Visibility = ViewStates.Visible;
             this.anchorNumInput = (EditText)this.FindViewById(Resource.Id.anchorNumText);
             this.editTextInfo = (TextView)this.FindViewById(Resource.Id.editTextInfo);
+
+            currentStep = DemoStep.MindrStart;
+
             this.EnableCorrectUIControls();
 
             Scene scene = this.sceneView.Scene;
@@ -163,7 +173,7 @@ namespace SampleXamarin
             }
         }
 
-        public async void LocateAllAnchors()
+        public void LocateAllAnchors()
         {
             // clean up prev session just in case
             this.DestroySession();
@@ -174,7 +184,7 @@ namespace SampleXamarin
             var anchorLocated = false;
 
             this.cloudAnchorManager.OnAnchorLocated += (sender, args) =>
-                this.RunOnUiThread(() =>
+                this.RunOnUiThread(async () =>
                 {
                     CloudSpatialAnchor anchor = args.Anchor;
                     LocateAnchorStatus status = args.Status;
@@ -193,13 +203,15 @@ namespace SampleXamarin
 
                         anchorLocated = true;
 
-                        // TODO call service
+                        var mr = await _mindrService.TryGetContentsForAnchor(anchor.Identifier);
+                        this.textView.Visibility = ViewStates.Visible;
+                        this.textView.Text = mr != null ? mr.message : "No data found for anchor.";
                     }
                 });
 
             this.cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
             {
-                this.currentStep = DemoStep.Start;
+                this.currentStep = DemoStep.MindrStart;
 
                 this.RunOnUiThread(() =>
                 {
@@ -212,162 +224,69 @@ namespace SampleXamarin
             this.cloudAnchorManager.StartSession();
 
             this.cloudAnchorManager.StartLocating(new AnchorLocateCriteria());
-
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         public void OnCreateButtonClicked(object sender, EventArgs args)
         {
-            this.textView.Text = "Scan your environment and place an anchor";
-            this.DestroySession();
-
-            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
-
-            this.cloudAnchorManager.OnSessionUpdated += (_, sessionUpdateArgs) =>
+            if (currentStep == DemoStep.MindrStart)
             {
-                SessionStatus status = sessionUpdateArgs.Status;
+                currentStep = DemoStep.MindrName;
+                textView.Text = "Name your Mindr!";
+                EnableCorrectUIControls();
+            }
 
-                if (this.currentStep == DemoStep.CreateAnchor)
+            if (currentStep == DemoStep.MindrName)
+            {
+                if (string.IsNullOrWhiteSpace(anchorNumInput.Text))
                 {
-                    float progress = status.RecommendedForCreateProgress;
-                    if (progress >= 1.0)
+                    textView.Text = "Please name your Mindr";
+                    return;
+                }
+
+                this.textView.Text = "Scan your environment and place a Mindr";
+                this.DestroySession();
+
+                this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
+
+                this.cloudAnchorManager.OnSessionUpdated += (_, sessionUpdateArgs) =>
+                {
+                    SessionStatus status = sessionUpdateArgs.Status;
+
+                    if (this.currentStep == DemoStep.MindrCreate)
                     {
-                        if (this.anchorVisuals.TryGetValue(string.Empty, out AnchorVisual visual))
+                        float progress = status.RecommendedForCreateProgress;
+                        if (progress >= 1.0)
                         {
-                            //Transition to saving...
-                            this.TransitionToSaving(visual);
+                            if (this.anchorVisuals.TryGetValue(string.Empty, out AnchorVisual visual))
+                            {
+                                //Transition to saving...
+                                this.TransitionToSaving(visual);
+                            }
+                            else
+                            {
+                                this.feedbackText = "Tap somewhere to place a Mindr.";
+                            }
                         }
                         else
                         {
-                            this.feedbackText = "Tap somewhere to place an anchor.";
+                            this.feedbackText = $"Progress is {progress:0%}";
                         }
                     }
-                    else
-                    {
-                        this.feedbackText = $"Progress is {progress:0%}";
-                    }
-                }
-            };
+                };
 
-            this.cloudAnchorManager.StartSession();
-            this.currentStep = DemoStep.CreateAnchor;
-            this.EnableCorrectUIControls();
-        }
-
-        
-
-        public void OnLocateButtonClicked(object sender, EventArgs args)
-        {
-            if (this.currentStep == DemoStep.Start)
-            {
-                this.currentStep = DemoStep.EnterAnchorNumber;
-                this.textView.Text = "Enter an anchor number and press locate";
+                this.currentStep = DemoStep.MindrCreate;
                 this.EnableCorrectUIControls();
+
+                this.cloudAnchorManager.StartSession();
             }
-            else
-            {
-                string inputVal = this.anchorNumInput.Text;
-                if (!string.IsNullOrEmpty(inputVal))
-                {
-                    Task.Run(async () =>
-                    {
-                        RetrieveAnchorResponse response = await this.anchorSharingServiceClient.RetrieveAnchorIdAsync(inputVal);
-
-                        if (response.AnchorFound)
-                        {
-                            this.AnchorLookedUp(response.AnchorId);
-                        }
-                        else
-                        {
-                            this.RunOnUiThread(() => {
-                                this.currentStep = DemoStep.Start;
-                                this.EnableCorrectUIControls();
-                                this.textView.Text = "Anchor number not found or has expired.";
-                            });
-                        }
-                    });
-
-                    this.currentStep = DemoStep.LocateAnchor;
-                    this.EnableCorrectUIControls();
-                }
-            }
-        }
-
-
-        private void AnchorLookedUp(string anchorId)
-        {
-            Log.Debug("ASADemo", "anchor " + anchorId);
-            this.anchorId = anchorId;
-            this.DestroySession();
-
-            bool anchorLocated = false;
-
-            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
-            this.cloudAnchorManager.OnAnchorLocated += (sender, args) =>
-                this.RunOnUiThread(() =>
-                {
-                    CloudSpatialAnchor anchor = args.Anchor;
-                    LocateAnchorStatus status = args.Status;
-
-                    if (status == LocateAnchorStatus.AlreadyTracked || status == LocateAnchorStatus.Located)
-                    {
-                        anchorLocated = true;
-
-                        AnchorVisual foundVisual = new AnchorVisual(anchor.LocalAnchor)
-                        {
-                            CloudAnchor = anchor
-                        };
-                        foundVisual.AnchorNode.SetParent(this.arFragment.ArSceneView.Scene);
-                        string cloudAnchorIdentifier = foundVisual.CloudAnchor.Identifier;
-                        foundVisual.SetColor(foundColor);
-                        foundVisual.AddToScene(this.arFragment);
-                        this.anchorVisuals[cloudAnchorIdentifier] = foundVisual;
-                    }
-                });
-
-            this.cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
-            {
-                this.currentStep = DemoStep.Start;
-
-                this.RunOnUiThread(() =>
-                {
-                    if (anchorLocated)
-                    {
-                        this.textView.Text = "Anchor located!";
-                    }
-                    else
-                    {
-                        this.textView.Text = "Anchor was not located. Check the logs for errors and\\or create a new anchor and try again.";
-                    }
-
-                    this.EnableCorrectUIControls();
-                });
-            };
-            this.cloudAnchorManager.StartSession();
-            AnchorLocateCriteria criteria = new AnchorLocateCriteria();
-            criteria.SetIdentifiers(new string[] { anchorId });
-            this.cloudAnchorManager.StartLocating(criteria);
         }
 
         private void AnchorPosted(string anchorNumber)
         {
             this.RunOnUiThread(() =>
             {
-                this.textView.Text = "Anchor Number: " + anchorNumber;
-                this.currentStep = DemoStep.Start;
+                this.textView.Text = "Mindr saved, pasted url on clipboard";
+                this.currentStep = DemoStep.MindrStart;
                 this.cloudAnchorManager.StopSession();
                 this.cloudAnchorManager = null;
                 this.ClearVisuals();
@@ -461,12 +380,44 @@ namespace SampleXamarin
                     this.anchorNumInput.Visibility = ViewStates.Visible;
                     this.editTextInfo.Visibility = ViewStates.Visible;
                     break;
+
+                case DemoStep.MindrStart:
+                    this.textView.Visibility = ViewStates.Visible;
+                    this.locateButton.Visibility = ViewStates.Gone;
+                    this.createButton.Visibility = ViewStates.Visible;
+                    this.anchorNumInput.Visibility = ViewStates.Gone;
+                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    break;
+
+                case DemoStep.MindrName:
+                    this.textView.Visibility = ViewStates.Visible;
+                    this.locateButton.Visibility = ViewStates.Gone;
+                    this.createButton.Visibility = ViewStates.Visible;
+                    this.anchorNumInput.Visibility = ViewStates.Visible;
+                    this.editTextInfo.Visibility = ViewStates.Visible;
+                    break;
+
+                case DemoStep.MindrCreate:
+                    this.textView.Visibility = ViewStates.Visible;
+                    this.locateButton.Visibility = ViewStates.Gone;
+                    this.createButton.Visibility = ViewStates.Gone;
+                    this.anchorNumInput.Visibility = ViewStates.Gone;
+                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    break;
+
+                case DemoStep.MindrSaving:
+                    this.textView.Visibility = ViewStates.Visible;
+                    this.locateButton.Visibility = ViewStates.Gone;
+                    this.createButton.Visibility = ViewStates.Gone;
+                    this.anchorNumInput.Visibility = ViewStates.Gone;
+                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    break;
             }
         }
 
         private void OnTapArPlaneListener(HitResult hitResult, Plane plane, MotionEvent motionEvent)
         {
-            if (this.currentStep == DemoStep.CreateAnchor)
+            if (this.currentStep == DemoStep.MindrCreate)
             {
                 if (!this.anchorVisuals.ContainsKey(string.Empty))
                 {
@@ -486,7 +437,7 @@ namespace SampleXamarin
         private void TransitionToSaving(AnchorVisual visual)
         {
             Log.Debug("ASADemo:", "transition to saving");
-            this.currentStep = DemoStep.SavingAnchor;
+            this.currentStep = DemoStep.MindrSaving;
             this.EnableCorrectUIControls();
             Log.Debug("ASADemo", "creating anchor");
             CloudSpatialAnchor cloudAnchor = new CloudSpatialAnchor();
@@ -501,15 +452,29 @@ namespace SampleXamarin
                         CloudSpatialAnchor anchor = await cloudAnchorTask;
 
                         string anchorId = anchor.Identifier;
+
                         Log.Debug("ASADemo:", "created anchor: " + anchorId);
-                        visual.SetColor(savedColor);
-                        this.anchorVisuals[anchorId] = visual;
-                        this.anchorVisuals.TryRemove(string.Empty, out _);
 
                         Log.Debug("ASADemo", "recording anchor with web service");
                         Log.Debug("ASADemo", "anchorId: " + anchorId);
-                        SendAnchorResponse response = await this.anchorSharingServiceClient.SendAnchorIdAsync(anchorId);
-                        this.AnchorPosted(response.AnchorNumber);
+
+                        //SendAnchorResponse response = await this.anchorSharingServiceClient.SendAnchorIdAsync(anchorId);
+
+                        var saveAnchorResult = await _mindrService.CreateAnchorAsync(anchorNumInput.Text, anchor.Identifier);
+                        if (saveAnchorResult != null)
+                        {
+                            CrossClipboard.Current.SetText($"{MindrService.MindrService.BaseUrl}{saveAnchorResult.uri}");
+                            visual.SetColor(savedColor);
+                            this.AnchorPosted("");
+                        }
+                        else
+                        {
+                            visual.SetColor(failedColor);
+                            await cloudAnchorManager.DeleteAnchorAsync(anchor);
+                        }
+
+                        this.anchorVisuals[anchorId] = visual;
+                        this.anchorVisuals.TryRemove(string.Empty, out _);
                     }
                     catch (CloudSpatialException ex)
                     {
@@ -553,6 +518,100 @@ namespace SampleXamarin
 
                 this.UpdateStatic();
             }, 500);
+        }
+
+        /* not used */
+
+        public void OnLocateButtonClicked(object sender, EventArgs args)
+        {
+            if (this.currentStep == DemoStep.Start)
+            {
+                this.currentStep = DemoStep.EnterAnchorNumber;
+                this.textView.Text = "Enter an anchor number and press locate";
+                this.EnableCorrectUIControls();
+            }
+            else
+            {
+                string inputVal = this.anchorNumInput.Text;
+                if (!string.IsNullOrEmpty(inputVal))
+                {
+                    Task.Run(async () =>
+                    {
+                        RetrieveAnchorResponse response = await this.anchorSharingServiceClient.RetrieveAnchorIdAsync(inputVal);
+
+                        if (response.AnchorFound)
+                        {
+                            this.AnchorLookedUp(response.AnchorId);
+                        }
+                        else
+                        {
+                            this.RunOnUiThread(() => {
+                                this.currentStep = DemoStep.Start;
+                                this.EnableCorrectUIControls();
+                                this.textView.Text = "Anchor number not found or has expired.";
+                            });
+                        }
+                    });
+
+                    this.currentStep = DemoStep.LocateAnchor;
+                    this.EnableCorrectUIControls();
+                }
+            }
+        }
+
+        private void AnchorLookedUp(string anchorId)
+        {
+            Log.Debug("ASADemo", "anchor " + anchorId);
+            this.anchorId = anchorId;
+            this.DestroySession();
+
+            bool anchorLocated = false;
+
+            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
+            this.cloudAnchorManager.OnAnchorLocated += (sender, args) =>
+                this.RunOnUiThread(() =>
+                {
+                    CloudSpatialAnchor anchor = args.Anchor;
+                    LocateAnchorStatus status = args.Status;
+
+                    if (status == LocateAnchorStatus.AlreadyTracked || status == LocateAnchorStatus.Located)
+                    {
+                        anchorLocated = true;
+
+                        AnchorVisual foundVisual = new AnchorVisual(anchor.LocalAnchor)
+                        {
+                            CloudAnchor = anchor
+                        };
+                        foundVisual.AnchorNode.SetParent(this.arFragment.ArSceneView.Scene);
+                        string cloudAnchorIdentifier = foundVisual.CloudAnchor.Identifier;
+                        foundVisual.SetColor(foundColor);
+                        foundVisual.AddToScene(this.arFragment);
+                        this.anchorVisuals[cloudAnchorIdentifier] = foundVisual;
+                    }
+                });
+
+            this.cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
+            {
+                this.currentStep = DemoStep.Start;
+
+                this.RunOnUiThread(() =>
+                {
+                    if (anchorLocated)
+                    {
+                        this.textView.Text = "Anchor located!";
+                    }
+                    else
+                    {
+                        this.textView.Text = "Anchor was not located. Check the logs for errors and\\or create a new anchor and try again.";
+                    }
+
+                    this.EnableCorrectUIControls();
+                });
+            };
+            this.cloudAnchorManager.StartSession();
+            AnchorLocateCriteria criteria = new AnchorLocateCriteria();
+            criteria.SetIdentifiers(new string[] { anchorId });
+            this.cloudAnchorManager.StartLocating(criteria);
         }
     }
 }
