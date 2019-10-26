@@ -61,130 +61,6 @@ namespace SampleXamarin
 
         private TextView textView;
 
-        public void OnCreateButtonClicked(object sender, EventArgs args)
-        {
-            this.textView.Text = "Scan your environment and place an anchor";
-            this.DestroySession();
-
-            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
-
-            this.cloudAnchorManager.OnSessionUpdated += (_, sessionUpdateArgs) =>
-            {
-                SessionStatus status = sessionUpdateArgs.Status;
-
-                if (this.currentStep == DemoStep.CreateAnchor)
-                {
-                    float progress = status.RecommendedForCreateProgress;
-                    if (progress >= 1.0)
-                    {
-                        if (this.anchorVisuals.TryGetValue(string.Empty, out AnchorVisual visual))
-                        {
-                            //Transition to saving...
-                            this.TransitionToSaving(visual);
-                        }
-                        else
-                        {
-                            this.feedbackText = "Tap somewhere to place an anchor.";
-                        }
-                    }
-                    else
-                    {
-                        this.feedbackText = $"Progress is {progress:0%}";
-                    }
-                }
-            };
-
-            this.cloudAnchorManager.StartSession();
-            this.currentStep = DemoStep.CreateAnchor;
-            this.EnableCorrectUIControls();
-        }
-
-        public void OnExitDemoClicked(object sender, EventArgs args)
-        {
-            lock (this.renderLock)
-            {
-                this.DestroySession();
-
-                this.Finish();
-            }
-        }
-
-        public void OnLocateButtonClicked(object sender, EventArgs args)
-        {
-            if (this.currentStep == DemoStep.Start)
-            {
-                this.currentStep = DemoStep.EnterAnchorNumber;
-                this.textView.Text = "Enter an anchor number and press locate";
-                this.EnableCorrectUIControls();
-            }
-            else
-            {
-                string inputVal = this.anchorNumInput.Text;
-                if (!string.IsNullOrEmpty(inputVal))
-                {
-                    Task.Run(async () =>
-                    {
-                        RetrieveAnchorResponse response = await this.anchorSharingServiceClient.RetrieveAnchorIdAsync(inputVal);
-
-                        if (response.AnchorFound)
-                        {
-                            this.AnchorLookedUp(response.AnchorId);
-                        }
-                        else
-                        {
-                            this.RunOnUiThread(() => {
-                                this.currentStep = DemoStep.Start;
-                                this.EnableCorrectUIControls();
-                                this.textView.Text = "Anchor number not found or has expired.";
-                            });
-                        }
-                    });
-
-                    this.currentStep = DemoStep.LocateAnchor;
-                    this.EnableCorrectUIControls();
-                }
-            }
-        }
-
-        protected override void OnCreate(Bundle savedInstanceState)
-        {
-            base.OnCreate(savedInstanceState);
-            this.SetContentView(Resource.Layout.activity_shared);
-
-            this.arFragment = (ArFragment)this.SupportFragmentManager.FindFragmentById(Resource.Id.ux_fragment);
-            this.arFragment.TapArPlane += (sender, args) => this.OnTapArPlaneListener(args.HitResult, args.Plane, args.MotionEvent);
-
-            this.sceneView = this.arFragment.ArSceneView;
-
-            this.exitButton = (Button)this.FindViewById(Resource.Id.mainMenu);
-            this.exitButton.Click += this.OnExitDemoClicked;
-            this.textView = (TextView)this.FindViewById(Resource.Id.textView);
-            this.textView.Visibility = ViewStates.Visible;
-            this.locateButton = (Button)this.FindViewById(Resource.Id.locateButton);
-            this.locateButton.Click += this.OnLocateButtonClicked;
-            this.createButton = (Button)this.FindViewById(Resource.Id.createButton);
-            this.createButton.Click += this.OnCreateButtonClicked;
-            this.anchorNumInput = (EditText)this.FindViewById(Resource.Id.anchorNumText);
-            this.editTextInfo = (TextView)this.FindViewById(Resource.Id.editTextInfo);
-            this.EnableCorrectUIControls();
-
-            Scene scene = this.sceneView.Scene;
-            scene.Update += (_, args) =>
-            {
-                // Pass frames to Spatial Anchors for processing.
-                this.cloudAnchorManager?.Update(this.sceneView.ArFrame);
-            };
-
-            // Initialize the colors.
-            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Red)).GetAsync().ContinueWith(materialTask => failedColor = (Material)materialTask.Result);
-            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Green)).GetAsync().ContinueWith(materialTask => savedColor = (Material)materialTask.Result);
-            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Yellow)).GetAsync().ContinueWith(materialTask =>
-            {
-                readyColor = (Material)materialTask.Result;
-                foundColor = readyColor;
-            });
-        }
-
         protected override void OnDestroy()
         {
             base.OnDestroy();
@@ -233,6 +109,203 @@ namespace SampleXamarin
 
             this.UpdateStatic();
         }
+
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            base.OnCreate(savedInstanceState);
+            this.SetContentView(Resource.Layout.activity_shared);
+
+            this.arFragment = (ArFragment)this.SupportFragmentManager.FindFragmentById(Resource.Id.ux_fragment);
+            this.arFragment.TapArPlane += (sender, args) => this.OnTapArPlaneListener(args.HitResult, args.Plane, args.MotionEvent);
+
+            this.sceneView = this.arFragment.ArSceneView;
+
+            this.exitButton = (Button)this.FindViewById(Resource.Id.mainMenu);
+            this.exitButton.Click += this.OnExitDemoClicked;
+            this.textView = (TextView)this.FindViewById(Resource.Id.textView);
+            this.textView.Visibility = ViewStates.Visible;
+            this.locateButton = (Button)this.FindViewById(Resource.Id.locateButton);
+            this.locateButton.Click += this.OnLocateButtonClicked;
+            this.createButton = (Button)this.FindViewById(Resource.Id.createButton);
+            this.createButton.Click += this.OnCreateButtonClicked;
+            createButton.Visibility = ViewStates.Visible;
+            this.anchorNumInput = (EditText)this.FindViewById(Resource.Id.anchorNumText);
+            this.editTextInfo = (TextView)this.FindViewById(Resource.Id.editTextInfo);
+            this.EnableCorrectUIControls();
+
+            Scene scene = this.sceneView.Scene;
+            scene.Update += (_, args) =>
+            {
+                // Pass frames to Spatial Anchors for processing.
+                this.cloudAnchorManager?.Update(this.sceneView.ArFrame);
+            };
+
+            // Initialize the colors.
+            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Red)).GetAsync().ContinueWith(materialTask => failedColor = (Material)materialTask.Result);
+            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Green)).GetAsync().ContinueWith(materialTask => savedColor = (Material)materialTask.Result);
+            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Yellow)).GetAsync().ContinueWith(materialTask =>
+            {
+                readyColor = (Material)materialTask.Result;
+                foundColor = readyColor;
+            });
+
+            // HAX
+            LocateAllAnchors();
+        }
+
+        public void OnExitDemoClicked(object sender, EventArgs args)
+        {
+            lock (this.renderLock)
+            {
+                this.DestroySession();
+
+                this.Finish();
+            }
+        }
+
+        public async void LocateAllAnchors()
+        {
+            // clean up prev session just in case
+            this.DestroySession();
+
+            // start locating
+            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
+
+            var anchorLocated = false;
+
+            this.cloudAnchorManager.OnAnchorLocated += (sender, args) =>
+                this.RunOnUiThread(() =>
+                {
+                    CloudSpatialAnchor anchor = args.Anchor;
+                    LocateAnchorStatus status = args.Status;
+
+                    if (status == LocateAnchorStatus.AlreadyTracked || status == LocateAnchorStatus.Located)
+                    {
+                        AnchorVisual foundVisual = new AnchorVisual(anchor.LocalAnchor)
+                        {
+                            CloudAnchor = anchor
+                        };
+                        foundVisual.AnchorNode.SetParent(this.arFragment.ArSceneView.Scene);
+                        string cloudAnchorIdentifier = foundVisual.CloudAnchor.Identifier;
+                        foundVisual.SetColor(foundColor);
+                        foundVisual.AddToScene(this.arFragment);
+                        this.anchorVisuals[cloudAnchorIdentifier] = foundVisual;
+
+                        anchorLocated = true;
+
+                        // TODO call service
+                    }
+                });
+
+            this.cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
+            {
+                this.currentStep = DemoStep.Start;
+
+                this.RunOnUiThread(() =>
+                {
+                    this.textView.Text = anchorLocated ? "Anchor(s) located!" : "Failed to find any anchors.";
+
+                    this.EnableCorrectUIControls();
+                });
+            };
+
+            this.cloudAnchorManager.StartSession();
+
+            this.cloudAnchorManager.StartLocating(new AnchorLocateCriteria());
+
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public void OnCreateButtonClicked(object sender, EventArgs args)
+        {
+            this.textView.Text = "Scan your environment and place an anchor";
+            this.DestroySession();
+
+            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
+
+            this.cloudAnchorManager.OnSessionUpdated += (_, sessionUpdateArgs) =>
+            {
+                SessionStatus status = sessionUpdateArgs.Status;
+
+                if (this.currentStep == DemoStep.CreateAnchor)
+                {
+                    float progress = status.RecommendedForCreateProgress;
+                    if (progress >= 1.0)
+                    {
+                        if (this.anchorVisuals.TryGetValue(string.Empty, out AnchorVisual visual))
+                        {
+                            //Transition to saving...
+                            this.TransitionToSaving(visual);
+                        }
+                        else
+                        {
+                            this.feedbackText = "Tap somewhere to place an anchor.";
+                        }
+                    }
+                    else
+                    {
+                        this.feedbackText = $"Progress is {progress:0%}";
+                    }
+                }
+            };
+
+            this.cloudAnchorManager.StartSession();
+            this.currentStep = DemoStep.CreateAnchor;
+            this.EnableCorrectUIControls();
+        }
+
+        
+
+        public void OnLocateButtonClicked(object sender, EventArgs args)
+        {
+            if (this.currentStep == DemoStep.Start)
+            {
+                this.currentStep = DemoStep.EnterAnchorNumber;
+                this.textView.Text = "Enter an anchor number and press locate";
+                this.EnableCorrectUIControls();
+            }
+            else
+            {
+                string inputVal = this.anchorNumInput.Text;
+                if (!string.IsNullOrEmpty(inputVal))
+                {
+                    Task.Run(async () =>
+                    {
+                        RetrieveAnchorResponse response = await this.anchorSharingServiceClient.RetrieveAnchorIdAsync(inputVal);
+
+                        if (response.AnchorFound)
+                        {
+                            this.AnchorLookedUp(response.AnchorId);
+                        }
+                        else
+                        {
+                            this.RunOnUiThread(() => {
+                                this.currentStep = DemoStep.Start;
+                                this.EnableCorrectUIControls();
+                                this.textView.Text = "Anchor number not found or has expired.";
+                            });
+                        }
+                    });
+
+                    this.currentStep = DemoStep.LocateAnchor;
+                    this.EnableCorrectUIControls();
+                }
+            }
+        }
+
 
         private void AnchorLookedUp(string anchorId)
         {

@@ -28,6 +28,9 @@ namespace SampleXamarin
             // Set our view from the "main" layout resource
             this.SetContentView(Resource.Layout.activity_main);
 
+            OnSharedDemoClick(this, null);
+            return;
+
             Button basicDemoButton = this.FindViewById<Button>(Resource.Id.arBasicDemo);
             basicDemoButton.Click += this.OnBasicDemoClick;
             Button nearbyDemoButton = this.FindViewById<Button>(Resource.Id.arNearbyDemo);
