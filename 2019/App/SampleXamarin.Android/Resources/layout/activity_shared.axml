@@ -85,7 +85,7 @@
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:layout_alignParentTop="true"
-            android:text="@string/back_button_text"
+            android:text="Retry locating"
             android:textAllCaps="false" />
     </RelativeLayout>
 </merge>

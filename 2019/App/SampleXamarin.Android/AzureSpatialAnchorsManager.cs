@@ -169,6 +169,8 @@ namespace SampleXamarin
                 return;
             }
 
+            if (eventArgs.ErrorMessage.Contains("No point hit.")) return;
+
             string message = $"{eventArgs.ErrorCode}: {eventArgs.ErrorMessage}";
             Debug.WriteLine(message);
 
@@ -197,6 +199,8 @@ namespace SampleXamarin
             {
                 return;
             }
+
+            if (e.Args.Message.Contains("No point hit.")) return;
 
             Debug.WriteLine(e.Args.Message);
 

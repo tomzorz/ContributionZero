@@ -6,7 +6,11 @@ namespace SampleXamarin.MindrService
 {
     public class MindrGetAnchorContents
     {
-        public string message { get; set; }
+        public string name { get; set; }
+
+        public string point_id { get; set; }
+
+        public string point_description { get; set; }
 
         public string audio { get; set; }
 

@@ -72,7 +72,7 @@ namespace SampleXamarin
         protected override void OnDestroy()
         {
             base.OnDestroy();
-            this.DestroySession();
+            DestroySession();
         }
 
         protected override void OnResume()
@@ -87,10 +87,10 @@ namespace SampleXamarin
                 return;
             }
 
-            if (this.sceneView?.Session is null && !SceneformHelper.TrySetupSessionForSceneView(this, this.sceneView))
+            if (sceneView?.Session is null && !SceneformHelper.TrySetupSessionForSceneView(this, sceneView))
             {
                 // Exception will be logged and SceneForm will handle any ARCore specific issues.
-                this.Finish();
+                Finish();
                 return;
             }
 
@@ -100,7 +100,7 @@ namespace SampleXamarin
                 Toast.MakeText(this, $"\"Set {AccountDetails.SpatialAnchorsAccountId} and {AccountDetails.SpatialAnchorsAccountKey} in {nameof(AccountDetails)}.cs\"", ToastLength.Long)
                         .Show();
 
-                this.Finish();
+                Finish();
                 return;
             }
 
@@ -109,45 +109,45 @@ namespace SampleXamarin
                 Toast.MakeText(this, $"Set the {AccountDetails.AnchorSharingServiceUrl} in {nameof(AccountDetails)}.cs", ToastLength.Long)
                         .Show();
 
-                this.Finish();
+                Finish();
                 return;
             }
 
-            this.anchorSharingServiceClient = new AnchorSharingServiceClient(AccountDetails.AnchorSharingServiceUrl);
+            anchorSharingServiceClient = new AnchorSharingServiceClient(AccountDetails.AnchorSharingServiceUrl);
 
-            this.UpdateStatic();
+            UpdateStatic();
         }
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
-            this.SetContentView(Resource.Layout.activity_shared);
+            SetContentView(Resource.Layout.activity_shared);
 
-            this.arFragment = (ArFragment)this.SupportFragmentManager.FindFragmentById(Resource.Id.ux_fragment);
-            this.arFragment.TapArPlane += (sender, args) => this.OnTapArPlaneListener(args.HitResult, args.Plane, args.MotionEvent);
+            arFragment = (ArFragment)SupportFragmentManager.FindFragmentById(Resource.Id.ux_fragment);
+            arFragment.TapArPlane += (sender, args) => OnTapArPlaneListener(args.HitResult, args.Plane, args.MotionEvent);
 
-            this.sceneView = this.arFragment.ArSceneView;
+            sceneView = arFragment.ArSceneView;
 
-            this.exitButton = (Button)this.FindViewById(Resource.Id.mainMenu);
-            this.exitButton.Click += this.OnExitDemoClicked;
-            this.textView = (TextView)this.FindViewById(Resource.Id.textView);
-            this.textView.Visibility = ViewStates.Visible;
-            this.locateButton = (Button)this.FindViewById(Resource.Id.locateButton);
-            this.locateButton.Click += this.OnLocateButtonClicked;
-            this.createButton = (Button)this.FindViewById(Resource.Id.createButton);
-            this.createButton.Click += this.OnCreateButtonClicked;
-            this.anchorNumInput = (EditText)this.FindViewById(Resource.Id.anchorNumText);
-            this.editTextInfo = (TextView)this.FindViewById(Resource.Id.editTextInfo);
+            exitButton = (Button)FindViewById(Resource.Id.mainMenu);
+            exitButton.Click += OnExitDemoClicked;
+            textView = (TextView)FindViewById(Resource.Id.textView);
+            textView.Visibility = ViewStates.Visible;
+            locateButton = (Button)FindViewById(Resource.Id.locateButton);
+            locateButton.Click += OnLocateButtonClicked;
+            createButton = (Button)FindViewById(Resource.Id.createButton);
+            createButton.Click += OnCreateButtonClicked;
+            anchorNumInput = (EditText)FindViewById(Resource.Id.anchorNumText);
+            editTextInfo = (TextView)FindViewById(Resource.Id.editTextInfo);
 
             currentStep = DemoStep.MindrStart;
 
-            this.EnableCorrectUIControls();
+            EnableCorrectUIControls();
 
-            Scene scene = this.sceneView.Scene;
+            Scene scene = sceneView.Scene;
             scene.Update += (_, args) =>
             {
                 // Pass frames to Spatial Anchors for processing.
-                this.cloudAnchorManager?.Update(this.sceneView.ArFrame);
+                cloudAnchorManager?.Update(sceneView.ArFrame);
             };
 
             // Initialize the colors.
@@ -163,28 +163,36 @@ namespace SampleXamarin
             LocateAllAnchors();
         }
 
-        public void OnExitDemoClicked(object sender, EventArgs args)
+        public async void OnExitDemoClicked(object sender, EventArgs args)
         {
-            lock (this.renderLock)
-            {
-                this.DestroySession();
+            //HAX
+            LocateAllAnchors();
+            return;
 
-                this.Finish();
+            lock (renderLock)
+            {
+                DestroySession();
+
+                Finish();
             }
         }
 
-        public void LocateAllAnchors()
+        public async void LocateAllAnchors()
         {
+            await Task.Delay(2000);
+
+            textView.Text = "Searching for Mindrs...";
+
             // clean up prev session just in case
-            this.DestroySession();
+            DestroySession();
 
             // start locating
-            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
+            cloudAnchorManager = new AzureSpatialAnchorsManager(sceneView.Session);
 
             var anchorLocated = false;
 
-            this.cloudAnchorManager.OnAnchorLocated += (sender, args) =>
-                this.RunOnUiThread(async () =>
+            cloudAnchorManager.OnAnchorLocated += (sender, args) =>
+                RunOnUiThread(async () =>
                 {
                     CloudSpatialAnchor anchor = args.Anchor;
                     LocateAnchorStatus status = args.Status;
@@ -195,35 +203,40 @@ namespace SampleXamarin
                         {
                             CloudAnchor = anchor
                         };
-                        foundVisual.AnchorNode.SetParent(this.arFragment.ArSceneView.Scene);
+                        foundVisual.AnchorNode.SetParent(arFragment.ArSceneView.Scene);
                         string cloudAnchorIdentifier = foundVisual.CloudAnchor.Identifier;
                         foundVisual.SetColor(foundColor);
-                        foundVisual.AddToScene(this.arFragment);
-                        this.anchorVisuals[cloudAnchorIdentifier] = foundVisual;
+                        foundVisual.AddToScene(arFragment);
+                        anchorVisuals[cloudAnchorIdentifier] = foundVisual;
 
                         anchorLocated = true;
 
                         var mr = await _mindrService.TryGetContentsForAnchor(anchor.Identifier);
-                        this.textView.Visibility = ViewStates.Visible;
-                        this.textView.Text = mr != null ? mr.message : "No data found for anchor.";
+                        textView.Visibility = ViewStates.Visible;
+                        textView.Text = mr != null ? mr.point_description : "No data found for Mindr.";
                     }
                 });
 
-            this.cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
+            cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
             {
-                this.currentStep = DemoStep.MindrStart;
+                currentStep = DemoStep.MindrStart;
 
-                this.RunOnUiThread(() =>
+                RunOnUiThread(() =>
                 {
-                    this.textView.Text = anchorLocated ? "Anchor(s) located!" : "Failed to find any anchors.";
+                    textView.Text = anchorLocated ? "Mindr(s) located!" : "Failed to find any Mindrs.";
 
-                    this.EnableCorrectUIControls();
+                    EnableCorrectUIControls();
                 });
             };
 
-            this.cloudAnchorManager.StartSession();
+            cloudAnchorManager.StartSession();
 
-            this.cloudAnchorManager.StartLocating(new AnchorLocateCriteria());
+            await Task.Delay(2000);
+
+            var ac = new AnchorLocateCriteria();
+            var ids = await _mindrService.GetAllAnchorIds();
+            ac.SetIdentifiers(ids.ToArray());
+            cloudAnchorManager.StartLocating(ac);
         }
 
         public void OnCreateButtonClicked(object sender, EventArgs args)
@@ -243,208 +256,208 @@ namespace SampleXamarin
                     return;
                 }
 
-                this.textView.Text = "Scan your environment and place a Mindr";
-                this.DestroySession();
+                textView.Text = "Scan your environment and place a Mindr";
+                DestroySession();
 
-                this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
+                cloudAnchorManager = new AzureSpatialAnchorsManager(sceneView.Session);
 
-                this.cloudAnchorManager.OnSessionUpdated += (_, sessionUpdateArgs) =>
+                cloudAnchorManager.OnSessionUpdated += (_, sessionUpdateArgs) =>
                 {
                     SessionStatus status = sessionUpdateArgs.Status;
 
-                    if (this.currentStep == DemoStep.MindrCreate)
+                    if (currentStep == DemoStep.MindrCreate)
                     {
                         float progress = status.RecommendedForCreateProgress;
                         if (progress >= 1.0)
                         {
-                            if (this.anchorVisuals.TryGetValue(string.Empty, out AnchorVisual visual))
+                            if (anchorVisuals.TryGetValue(string.Empty, out AnchorVisual visual))
                             {
                                 //Transition to saving...
-                                this.TransitionToSaving(visual);
+                                TransitionToSaving(visual);
                             }
                             else
                             {
-                                this.feedbackText = "Tap somewhere to place a Mindr.";
+                                feedbackText = "Tap somewhere to place a Mindr.";
                             }
                         }
                         else
                         {
-                            this.feedbackText = $"Progress is {progress:0%}";
+                            feedbackText = $"Progress is {progress:0%}";
                         }
                     }
                 };
 
-                this.currentStep = DemoStep.MindrCreate;
-                this.EnableCorrectUIControls();
+                currentStep = DemoStep.MindrCreate;
+                EnableCorrectUIControls();
 
-                this.cloudAnchorManager.StartSession();
+                cloudAnchorManager.StartSession();
             }
         }
 
         private void AnchorPosted(string anchorNumber)
         {
-            this.RunOnUiThread(() =>
+            RunOnUiThread(() =>
             {
-                this.textView.Text = "Mindr saved, pasted url on clipboard";
-                this.currentStep = DemoStep.MindrStart;
-                this.cloudAnchorManager.StopSession();
-                this.cloudAnchorManager = null;
-                this.ClearVisuals();
-                this.EnableCorrectUIControls();
+                textView.Text = "Mindr saved, pasted url on clipboard";
+                currentStep = DemoStep.MindrStart;
+                cloudAnchorManager.StopSession();
+                cloudAnchorManager = null;
+                ClearVisuals();
+                EnableCorrectUIControls();
             });
         }
 
         private void ClearVisuals()
         {
-            foreach (AnchorVisual visual in this.anchorVisuals.Values)
+            foreach (AnchorVisual visual in anchorVisuals.Values)
             {
                 visual.Destroy();
             }
 
-            this.anchorVisuals.Clear();
+            anchorVisuals.Clear();
         }
 
         private Anchor CreateAnchor(HitResult hitResult)
         {
             AnchorVisual visual = new AnchorVisual(hitResult.CreateAnchor());
             visual.SetColor(readyColor);
-            visual.AddToScene(this.arFragment);
-            this.anchorVisuals[string.Empty] = visual;
+            visual.AddToScene(arFragment);
+            anchorVisuals[string.Empty] = visual;
 
             return visual.LocalAnchor;
         }
 
         private void CreateAnchorExceptionCompletion(string message)
         {
-            this.textView.Text = message;
-            this.currentStep = DemoStep.Start;
-            this.cloudAnchorManager.StopSession();
-            this.cloudAnchorManager = null;
-            this.EnableCorrectUIControls();
+            textView.Text = message;
+            currentStep = DemoStep.Start;
+            cloudAnchorManager.StopSession();
+            cloudAnchorManager = null;
+            EnableCorrectUIControls();
         }
 
         private void DestroySession()
         {
-            if (this.cloudAnchorManager != null)
+            if (cloudAnchorManager != null)
             {
-                this.cloudAnchorManager.StopSession();
-                this.cloudAnchorManager = null;
+                cloudAnchorManager.StopSession();
+                cloudAnchorManager = null;
             }
 
-            this.StopWatcher();
+            StopWatcher();
 
-            this.ClearVisuals();
+            ClearVisuals();
         }
 
         private void EnableCorrectUIControls()
         {
-            switch (this.currentStep)
+            switch (currentStep)
             {
                 case DemoStep.Start:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Visible;
-                    this.createButton.Visibility = ViewStates.Visible;
-                    this.anchorNumInput.Visibility = ViewStates.Gone;
-                    this.editTextInfo.Visibility = ViewStates.Gone;
-                    this.SupportActionBar.Hide();
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Visible;
+                    createButton.Visibility = ViewStates.Visible;
+                    anchorNumInput.Visibility = ViewStates.Gone;
+                    editTextInfo.Visibility = ViewStates.Gone;
+                    SupportActionBar.Hide();
                     break;
 
                 case DemoStep.CreateAnchor:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Gone;
-                    this.createButton.Visibility = ViewStates.Gone;
-                    this.anchorNumInput.Visibility = ViewStates.Gone;
-                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Gone;
+                    createButton.Visibility = ViewStates.Gone;
+                    anchorNumInput.Visibility = ViewStates.Gone;
+                    editTextInfo.Visibility = ViewStates.Gone;
                     break;
 
                 case DemoStep.LocateAnchor:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Gone;
-                    this.createButton.Visibility = ViewStates.Gone;
-                    this.anchorNumInput.Visibility = ViewStates.Gone;
-                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Gone;
+                    createButton.Visibility = ViewStates.Gone;
+                    anchorNumInput.Visibility = ViewStates.Gone;
+                    editTextInfo.Visibility = ViewStates.Gone;
                     break;
 
                 case DemoStep.SavingAnchor:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Gone;
-                    this.createButton.Visibility = ViewStates.Gone;
-                    this.anchorNumInput.Visibility = ViewStates.Gone;
-                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Gone;
+                    createButton.Visibility = ViewStates.Gone;
+                    anchorNumInput.Visibility = ViewStates.Gone;
+                    editTextInfo.Visibility = ViewStates.Gone;
                     break;
 
                 case DemoStep.EnterAnchorNumber:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Visible;
-                    this.createButton.Visibility = ViewStates.Gone;
-                    this.anchorNumInput.Visibility = ViewStates.Visible;
-                    this.editTextInfo.Visibility = ViewStates.Visible;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Visible;
+                    createButton.Visibility = ViewStates.Gone;
+                    anchorNumInput.Visibility = ViewStates.Visible;
+                    editTextInfo.Visibility = ViewStates.Visible;
                     break;
 
                 case DemoStep.MindrStart:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Gone;
-                    this.createButton.Visibility = ViewStates.Visible;
-                    this.anchorNumInput.Visibility = ViewStates.Gone;
-                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Gone;
+                    createButton.Visibility = ViewStates.Visible;
+                    anchorNumInput.Visibility = ViewStates.Gone;
+                    editTextInfo.Visibility = ViewStates.Gone;
                     break;
 
                 case DemoStep.MindrName:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Gone;
-                    this.createButton.Visibility = ViewStates.Visible;
-                    this.anchorNumInput.Visibility = ViewStates.Visible;
-                    this.editTextInfo.Visibility = ViewStates.Visible;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Gone;
+                    createButton.Visibility = ViewStates.Visible;
+                    anchorNumInput.Visibility = ViewStates.Visible;
+                    editTextInfo.Visibility = ViewStates.Visible;
                     break;
 
                 case DemoStep.MindrCreate:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Gone;
-                    this.createButton.Visibility = ViewStates.Gone;
-                    this.anchorNumInput.Visibility = ViewStates.Gone;
-                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Gone;
+                    createButton.Visibility = ViewStates.Gone;
+                    anchorNumInput.Visibility = ViewStates.Gone;
+                    editTextInfo.Visibility = ViewStates.Gone;
                     break;
 
                 case DemoStep.MindrSaving:
-                    this.textView.Visibility = ViewStates.Visible;
-                    this.locateButton.Visibility = ViewStates.Gone;
-                    this.createButton.Visibility = ViewStates.Gone;
-                    this.anchorNumInput.Visibility = ViewStates.Gone;
-                    this.editTextInfo.Visibility = ViewStates.Gone;
+                    textView.Visibility = ViewStates.Visible;
+                    locateButton.Visibility = ViewStates.Gone;
+                    createButton.Visibility = ViewStates.Gone;
+                    anchorNumInput.Visibility = ViewStates.Gone;
+                    editTextInfo.Visibility = ViewStates.Gone;
                     break;
             }
         }
 
         private void OnTapArPlaneListener(HitResult hitResult, Plane plane, MotionEvent motionEvent)
         {
-            if (this.currentStep == DemoStep.MindrCreate)
+            if (currentStep == DemoStep.MindrCreate)
             {
-                if (!this.anchorVisuals.ContainsKey(string.Empty))
+                if (!anchorVisuals.ContainsKey(string.Empty))
                 {
-                    this.CreateAnchor(hitResult);
+                    CreateAnchor(hitResult);
                 }
             }
         }
 
         private void StopWatcher()
         {
-            if (this.cloudAnchorManager != null)
+            if (cloudAnchorManager != null)
             {
-                this.cloudAnchorManager.StopLocating();
+                cloudAnchorManager.StopLocating();
             }
         }
 
         private void TransitionToSaving(AnchorVisual visual)
         {
             Log.Debug("ASADemo:", "transition to saving");
-            this.currentStep = DemoStep.MindrSaving;
-            this.EnableCorrectUIControls();
+            currentStep = DemoStep.MindrSaving;
+            EnableCorrectUIControls();
             Log.Debug("ASADemo", "creating anchor");
             CloudSpatialAnchor cloudAnchor = new CloudSpatialAnchor();
             visual.CloudAnchor = cloudAnchor;
             cloudAnchor.LocalAnchor = visual.LocalAnchor;
 
-            this.cloudAnchorManager.CreateAnchorAsync(cloudAnchor)
+            cloudAnchorManager.CreateAnchorAsync(cloudAnchor)
                 .ContinueWith(async cloudAnchorTask =>
                 {
                     try
@@ -465,7 +478,7 @@ namespace SampleXamarin
                         {
                             CrossClipboard.Current.SetText($"{MindrService.MindrService.BaseUrl}{saveAnchorResult.uri}");
                             visual.SetColor(savedColor);
-                            this.AnchorPosted("");
+                            AnchorPosted("");
                         }
                         else
                         {
@@ -473,16 +486,16 @@ namespace SampleXamarin
                             await cloudAnchorManager.DeleteAnchorAsync(anchor);
                         }
 
-                        this.anchorVisuals[anchorId] = visual;
-                        this.anchorVisuals.TryRemove(string.Empty, out _);
+                        anchorVisuals[anchorId] = visual;
+                        anchorVisuals.TryRemove(string.Empty, out _);
                     }
                     catch (CloudSpatialException ex)
                     {
-                        this.CreateAnchorExceptionCompletion($"{ex.Message}, {ex.ErrorCode}");
+                        CreateAnchorExceptionCompletion($"{ex.Message}, {ex.ErrorCode}");
                     }
                     catch (Exception ex)
                     {
-                        this.CreateAnchorExceptionCompletion(ex.Message);
+                        CreateAnchorExceptionCompletion(ex.Message);
                         visual.SetColor(failedColor);
                     }
                 });
@@ -492,31 +505,31 @@ namespace SampleXamarin
         {
             new Handler().PostDelayed(() =>
             {
-                switch (this.currentStep)
+                switch (currentStep)
                 {
                     case DemoStep.Start:
                         break;
 
-                    case DemoStep.CreateAnchor:
-                        this.textView.Text = this.feedbackText;
+                    case DemoStep.MindrCreate:
+                        textView.Text = feedbackText;
                         break;
 
                     case DemoStep.LocateAnchor:
-                        if (!string.IsNullOrEmpty(this.anchorId))
+                        if (!string.IsNullOrEmpty(anchorId))
                         {
-                            this.textView.Text = "searching for\n" + this.anchorId;
+                            textView.Text = "searching for\n" + anchorId;
                         }
                         break;
 
                     case DemoStep.SavingAnchor:
-                        this.textView.Text = "saving...";
+                        textView.Text = "saving...";
                         break;
 
                     case DemoStep.EnterAnchorNumber:
                         break;
                 }
 
-                this.UpdateStatic();
+                UpdateStatic();
             }, 500);
         }
 
@@ -524,37 +537,37 @@ namespace SampleXamarin
 
         public void OnLocateButtonClicked(object sender, EventArgs args)
         {
-            if (this.currentStep == DemoStep.Start)
+            if (currentStep == DemoStep.Start)
             {
-                this.currentStep = DemoStep.EnterAnchorNumber;
-                this.textView.Text = "Enter an anchor number and press locate";
-                this.EnableCorrectUIControls();
+                currentStep = DemoStep.EnterAnchorNumber;
+                textView.Text = "Enter an anchor number and press locate";
+                EnableCorrectUIControls();
             }
             else
             {
-                string inputVal = this.anchorNumInput.Text;
+                string inputVal = anchorNumInput.Text;
                 if (!string.IsNullOrEmpty(inputVal))
                 {
                     Task.Run(async () =>
                     {
-                        RetrieveAnchorResponse response = await this.anchorSharingServiceClient.RetrieveAnchorIdAsync(inputVal);
+                        RetrieveAnchorResponse response = await anchorSharingServiceClient.RetrieveAnchorIdAsync(inputVal);
 
                         if (response.AnchorFound)
                         {
-                            this.AnchorLookedUp(response.AnchorId);
+                            AnchorLookedUp(response.AnchorId);
                         }
                         else
                         {
-                            this.RunOnUiThread(() => {
-                                this.currentStep = DemoStep.Start;
-                                this.EnableCorrectUIControls();
-                                this.textView.Text = "Anchor number not found or has expired.";
+                            RunOnUiThread(() => {
+                                currentStep = DemoStep.Start;
+                                EnableCorrectUIControls();
+                                textView.Text = "Anchor number not found or has expired.";
                             });
                         }
                     });
 
-                    this.currentStep = DemoStep.LocateAnchor;
-                    this.EnableCorrectUIControls();
+                    currentStep = DemoStep.LocateAnchor;
+                    EnableCorrectUIControls();
                 }
             }
         }
@@ -563,13 +576,13 @@ namespace SampleXamarin
         {
             Log.Debug("ASADemo", "anchor " + anchorId);
             this.anchorId = anchorId;
-            this.DestroySession();
+            DestroySession();
 
             bool anchorLocated = false;
 
-            this.cloudAnchorManager = new AzureSpatialAnchorsManager(this.sceneView.Session);
-            this.cloudAnchorManager.OnAnchorLocated += (sender, args) =>
-                this.RunOnUiThread(() =>
+            cloudAnchorManager = new AzureSpatialAnchorsManager(sceneView.Session);
+            cloudAnchorManager.OnAnchorLocated += (sender, args) =>
+                RunOnUiThread(() =>
                 {
                     CloudSpatialAnchor anchor = args.Anchor;
                     LocateAnchorStatus status = args.Status;
@@ -582,36 +595,36 @@ namespace SampleXamarin
                         {
                             CloudAnchor = anchor
                         };
-                        foundVisual.AnchorNode.SetParent(this.arFragment.ArSceneView.Scene);
+                        foundVisual.AnchorNode.SetParent(arFragment.ArSceneView.Scene);
                         string cloudAnchorIdentifier = foundVisual.CloudAnchor.Identifier;
                         foundVisual.SetColor(foundColor);
-                        foundVisual.AddToScene(this.arFragment);
-                        this.anchorVisuals[cloudAnchorIdentifier] = foundVisual;
+                        foundVisual.AddToScene(arFragment);
+                        anchorVisuals[cloudAnchorIdentifier] = foundVisual;
                     }
                 });
 
-            this.cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
+            cloudAnchorManager.OnLocateAnchorsCompleted += (sender, args) =>
             {
-                this.currentStep = DemoStep.Start;
+                currentStep = DemoStep.Start;
 
-                this.RunOnUiThread(() =>
+                RunOnUiThread(() =>
                 {
                     if (anchorLocated)
                     {
-                        this.textView.Text = "Anchor located!";
+                        textView.Text = "Anchor located!";
                     }
                     else
                     {
-                        this.textView.Text = "Anchor was not located. Check the logs for errors and\\or create a new anchor and try again.";
+                        textView.Text = "Anchor was not located. Check the logs for errors and\\or create a new anchor and try again.";
                     }
 
-                    this.EnableCorrectUIControls();
+                    EnableCorrectUIControls();
                 });
             };
-            this.cloudAnchorManager.StartSession();
+            cloudAnchorManager.StartSession();
             AnchorLocateCriteria criteria = new AnchorLocateCriteria();
             criteria.SetIdentifiers(new string[] { anchorId });
-            this.cloudAnchorManager.StartLocating(criteria);
+            cloudAnchorManager.StartLocating(criteria);
         }
     }
 }

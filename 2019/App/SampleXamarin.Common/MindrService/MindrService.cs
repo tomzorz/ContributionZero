@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -39,13 +40,29 @@ namespace SampleXamarin.MindrService
             try
             {
                 var htc = new HttpClient();
-                var result = await htc.GetStringAsync($"{BaseUrl}/api/content/{Encoding.UTF8.GetBytes(anchorId)}");
+                var result = await htc.GetStringAsync($"{BaseUrl}/api/content/{Convert.ToBase64String(Encoding.UTF8.GetBytes(anchorId))}");
                 var obj = JsonConvert.DeserializeObject<MindrGetAnchorContents>(result);
                 return obj;
             }
             catch (Exception e)
             {
                 return null;
+            }
+        }
+
+        public async Task<List<string>> GetAllAnchorIds()
+        {
+            try
+            {
+                var htc = new HttpClient();
+                var result = await htc.GetStringAsync($"{BaseUrl}/get_points");
+                var obj = JsonConvert.DeserializeObject<List<string>>(result);
+                var clist = obj.Select(x => Encoding.UTF8.GetString(Convert.FromBase64String(x))).ToList();
+                return clist;
+            }
+            catch (Exception e)
+            {
+                return new List<string>();
             }
         }
     }
