@@ -13,31 +13,39 @@
 
     <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="20dp">
-        <TextView
-            android:id="@+id/textView"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/backingplate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentBottom="true"
-            android:layout_marginStart="10dp"
-            android:layout_marginTop="50dp"
-            android:layout_marginEnd="10dp"
-            android:layout_marginBottom="10dp"
-            android:text="Welcome to Mindr!"
-            android:textAlignment="center"
-            android:textColor="@android:color/holo_orange_light"
-            android:textSize="18sp"
-            android:visibility="visible" />
+            android:background="#70000000"
+            android:layout_marginTop="30dp">
+            <TextView
+                android:id="@+id/textView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginStart="10dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginEnd="10dp"
+                android:layout_marginBottom="20dp"
+                android:text="Welcome to MindR!"
+                android:textAlignment="center"
+                android:textColor="@android:color/holo_orange_light"
+                android:textSize="24sp"
+                android:visibility="visible" />
+        </LinearLayout>
+
 
         <Button
             android:id="@+id/createButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:layout_marginStart="50dp"
-            android:layout_marginBottom="150dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="10dp"
             android:textAllCaps="false"
             android:text="@string/create_button_text" />
 
@@ -47,42 +55,49 @@
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_alignParentBottom="true"
-            android:layout_marginEnd="50dp"
+            android:layout_marginEnd="150dp"
             android:layout_marginBottom="150dp"
             android:textAllCaps="false"
+            android:visibility="gone"
             android:text="@string/locate_button_text" />
 
-        <TextView
-            android:id="@+id/editTextInfo"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/backingplateTwo"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="150dp"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom = "300dp"
-            android:text="Name new mindr:"
-            android:textAlignment="center"
-            android:textColor="@android:color/holo_orange_light"
-            android:textSize="18sp"
-            android:visibility="visible" />
+            android:background="#70000000"
+            android:layout_marginTop="250dp"
+            android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/anchorNumText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="150dp"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom = "250dp"
-            android:ems="10"
-            android:text=""
-            android:singleLine="true"
-            android:hint="e.g. fridge door"
-            android:backgroundTint="@color/colorAccent"
-            android:textColor="@android:color/holo_orange_light"/>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:id="@+id/editTextInfo"
+                android:text="Name new MindR:"
+                android:textAlignment="center"
+                android:textColor="@android:color/holo_orange_light"
+                android:textSize="18sp"
+                android:visibility="visible" />
+
+            <EditText
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="20dp"
+                android:id="@+id/anchorNumText"
+                android:ems="10"
+                android:text=""
+                android:singleLine="true"
+                android:hint="e.g. fridge door"
+                android:backgroundTint="@color/colorAccent"
+                android:textColor="@android:color/holo_orange_light"/>
+        </LinearLayout>
 
         <Button
             android:id="@+id/mainMenu"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:visibility="gone"
             android:layout_alignParentStart="true"
             android:layout_alignParentTop="true"
             android:text="Retry locating"

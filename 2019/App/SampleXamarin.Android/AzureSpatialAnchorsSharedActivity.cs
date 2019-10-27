@@ -62,6 +62,8 @@ namespace SampleXamarin
 
         private TextView textView;
 
+        private LinearLayout backingPlateTwo;
+
         private readonly MindrService.MindrService _mindrService;
 
         public AzureSpatialAnchorsSharedActivity()
@@ -130,6 +132,7 @@ namespace SampleXamarin
 
             exitButton = (Button)FindViewById(Resource.Id.mainMenu);
             exitButton.Click += OnExitDemoClicked;
+            exitButton.Visibility = ViewStates.Gone;
             textView = (TextView)FindViewById(Resource.Id.textView);
             textView.Visibility = ViewStates.Visible;
             locateButton = (Button)FindViewById(Resource.Id.locateButton);
@@ -138,6 +141,7 @@ namespace SampleXamarin
             createButton.Click += OnCreateButtonClicked;
             anchorNumInput = (EditText)FindViewById(Resource.Id.anchorNumText);
             editTextInfo = (TextView)FindViewById(Resource.Id.editTextInfo);
+            backingPlateTwo = (LinearLayout) FindViewById(Resource.Id.backingplateTwo);
 
             currentStep = DemoStep.MindrStart;
 
@@ -245,6 +249,7 @@ namespace SampleXamarin
             {
                 currentStep = DemoStep.MindrName;
                 textView.Text = "Name your Mindr!";
+                createButton.Text = "Set name";
                 EnableCorrectUIControls();
             }
 
@@ -255,6 +260,8 @@ namespace SampleXamarin
                     textView.Text = "Please name your Mindr";
                     return;
                 }
+
+                createButton.Text = "Save";
 
                 textView.Text = "Scan your environment and place a Mindr";
                 DestroySession();
@@ -304,6 +311,7 @@ namespace SampleXamarin
                 cloudAnchorManager = null;
                 ClearVisuals();
                 EnableCorrectUIControls();
+                createButton.Text = "Create";
             });
         }
 
@@ -400,6 +408,7 @@ namespace SampleXamarin
                     createButton.Visibility = ViewStates.Visible;
                     anchorNumInput.Visibility = ViewStates.Gone;
                     editTextInfo.Visibility = ViewStates.Gone;
+                    backingPlateTwo.Visibility = ViewStates.Gone;
                     break;
 
                 case DemoStep.MindrName:
@@ -408,6 +417,7 @@ namespace SampleXamarin
                     createButton.Visibility = ViewStates.Visible;
                     anchorNumInput.Visibility = ViewStates.Visible;
                     editTextInfo.Visibility = ViewStates.Visible;
+                    backingPlateTwo.Visibility = ViewStates.Visible;
                     break;
 
                 case DemoStep.MindrCreate:
@@ -416,6 +426,7 @@ namespace SampleXamarin
                     createButton.Visibility = ViewStates.Gone;
                     anchorNumInput.Visibility = ViewStates.Gone;
                     editTextInfo.Visibility = ViewStates.Gone;
+                    backingPlateTwo.Visibility = ViewStates.Gone;
                     break;
 
                 case DemoStep.MindrSaving:
@@ -424,6 +435,7 @@ namespace SampleXamarin
                     createButton.Visibility = ViewStates.Gone;
                     anchorNumInput.Visibility = ViewStates.Gone;
                     editTextInfo.Visibility = ViewStates.Gone;
+                    backingPlateTwo.Visibility = ViewStates.Gone;
                     break;
             }
         }
