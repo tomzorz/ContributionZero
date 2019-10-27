@@ -17,12 +17,13 @@ using SampleXamarin.AnchorSharing;
 using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Android.Content;
 using Plugin.Clipboard;
 
 namespace SampleXamarin
 {
     [Activity(Label = "AzureSpatialAnchorsSharedActivity")]
-    public class AzureSpatialAnchorsSharedActivity : AppCompatActivity
+    public class AzureSpatialAnchorsSharedActivity : AppCompatActivity, Node.IOnTouchListener
     {
         private static Material failedColor;
 
@@ -31,6 +32,8 @@ namespace SampleXamarin
         private static Material readyColor;
 
         private static Material savedColor;
+
+        private static Material selectedColor;
 
         private readonly ConcurrentDictionary<string, AnchorVisual> anchorVisuals = new ConcurrentDictionary<string, AnchorVisual>();
 
@@ -157,7 +160,8 @@ namespace SampleXamarin
             // Initialize the colors.
             MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Red)).GetAsync().ContinueWith(materialTask => failedColor = (Material)materialTask.Result);
             MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Green)).GetAsync().ContinueWith(materialTask => savedColor = (Material)materialTask.Result);
-            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Yellow)).GetAsync().ContinueWith(materialTask =>
+            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.DarkBlue)).GetAsync().ContinueWith(materialTask => selectedColor = (Material)materialTask.Result);
+            MaterialFactory.MakeOpaqueWithColor(this, new Color(Android.Graphics.Color.Orange)).GetAsync().ContinueWith(materialTask =>
             {
                 readyColor = (Material)materialTask.Result;
                 foundColor = readyColor;
@@ -185,7 +189,7 @@ namespace SampleXamarin
         {
             await Task.Delay(2000);
 
-            textView.Text = "Searching for Mindrs...";
+            textView.Text = "Searching for MindRs...";
 
             // clean up prev session just in case
             DestroySession();
@@ -207,17 +211,20 @@ namespace SampleXamarin
                         {
                             CloudAnchor = anchor
                         };
-                        foundVisual.AnchorNode.SetParent(arFragment.ArSceneView.Scene);
-                        string cloudAnchorIdentifier = foundVisual.CloudAnchor.Identifier;
-                        foundVisual.SetColor(foundColor);
-                        foundVisual.AddToScene(arFragment);
-                        anchorVisuals[cloudAnchorIdentifier] = foundVisual;
-
-                        anchorLocated = true;
 
                         var mr = await _mindrService.TryGetContentsForAnchor(anchor.Identifier);
                         textView.Visibility = ViewStates.Visible;
-                        textView.Text = mr != null ? mr.point_description : "No data found for Mindr.";
+                        textView.Text = mr != null ? mr.actualDesc : "No data found for MindR.";
+
+                        foundVisual.AnchorNode.SetParent(arFragment.ArSceneView.Scene);
+                        string cloudAnchorIdentifier = foundVisual.CloudAnchor.Identifier;
+                        foundVisual.SetColor(foundColor);
+                        foundVisual.AddToScene(arFragment, textView.Text);
+                        anchorVisuals[cloudAnchorIdentifier] = foundVisual;
+
+
+                        foundVisual.AnchorNode.SetOnTouchListener(this);
+                        anchorLocated = true;
                     }
                 });
 
@@ -227,7 +234,7 @@ namespace SampleXamarin
 
                 RunOnUiThread(() =>
                 {
-                    textView.Text = anchorLocated ? "Mindr(s) located!" : "Failed to find any Mindrs.";
+                    textView.Text = anchorLocated ? "MindR(s) located!" : "Failed to find any MindRs.";
 
                     EnableCorrectUIControls();
                 });
@@ -247,8 +254,10 @@ namespace SampleXamarin
         {
             if (currentStep == DemoStep.MindrStart)
             {
+                DestroySession();
+
                 currentStep = DemoStep.MindrName;
-                textView.Text = "Name your Mindr!";
+                textView.Text = "Name your MindR!";
                 createButton.Text = "Set name";
                 EnableCorrectUIControls();
             }
@@ -257,13 +266,13 @@ namespace SampleXamarin
             {
                 if (string.IsNullOrWhiteSpace(anchorNumInput.Text))
                 {
-                    textView.Text = "Please name your Mindr";
+                    textView.Text = "Please name your MindR";
                     return;
                 }
 
                 createButton.Text = "Save";
 
-                textView.Text = "Scan your environment and place a Mindr";
+                textView.Text = "Scan your environment and place a MindR";
                 DestroySession();
 
                 cloudAnchorManager = new AzureSpatialAnchorsManager(sceneView.Session);
@@ -284,7 +293,7 @@ namespace SampleXamarin
                             }
                             else
                             {
-                                feedbackText = "Tap somewhere to place a Mindr.";
+                                feedbackText = "Tap somewhere to place a MindR.";
                             }
                         }
                         else
@@ -305,7 +314,7 @@ namespace SampleXamarin
         {
             RunOnUiThread(() =>
             {
-                textView.Text = "Mindr saved, pasted url on clipboard";
+                textView.Text = "MindR saved, pasted url on clipboard";
                 currentStep = DemoStep.MindrStart;
                 cloudAnchorManager.StopSession();
                 cloudAnchorManager = null;
@@ -491,6 +500,18 @@ namespace SampleXamarin
                             CrossClipboard.Current.SetText($"{MindrService.MindrService.BaseUrl}{saveAnchorResult.uri}");
                             visual.SetColor(savedColor);
                             AnchorPosted("");
+
+                            await Task.Delay(1000);
+                            RunOnUiThread(() =>
+                            {
+                                var shareIntent = new Intent(Android.Content.Intent.ActionSend);
+                                shareIntent.SetType("text/plain");
+                                shareIntent.PutExtra(Intent.ExtraText, $"{MindrService.MindrService.BaseUrl}{saveAnchorResult.uri}");
+                                StartActivity(shareIntent);
+                            });
+                            await Task.Delay(1000);
+
+                            RunOnUiThread(LocateAllAnchors);
                         }
                         else
                         {
@@ -637,6 +658,30 @@ namespace SampleXamarin
             AnchorLocateCriteria criteria = new AnchorLocateCriteria();
             criteria.SetIdentifiers(new string[] { anchorId });
             cloudAnchorManager.StartLocating(criteria);
+        }
+
+        private Node prevNode;
+
+        public bool OnTouch(HitTestResult p0, MotionEvent p1)
+        {
+            if (p0?.Node?.Name == null) return false;
+
+            if (prevNode != null)
+            {
+                var prenderable = prevNode.Renderable.MakeCopy();
+                prenderable.SetMaterial(0, foundColor);
+                prevNode.Renderable = prenderable;
+            }
+
+            prevNode = p0.Node;
+
+            textView.Text = p0.Node.Name;
+
+            var renderable = prevNode.Renderable.MakeCopy();
+            renderable.SetMaterial(0, selectedColor);
+            prevNode.Renderable = renderable;
+
+            return true;
         }
     }
 }

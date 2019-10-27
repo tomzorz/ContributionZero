@@ -15,5 +15,7 @@ namespace SampleXamarin.MindrService
         public string audio { get; set; }
 
         public string image { get; set; }
+
+        public string actualDesc => string.IsNullOrWhiteSpace(point_description) ? $"No message on {name}" : point_description;
     }
 }

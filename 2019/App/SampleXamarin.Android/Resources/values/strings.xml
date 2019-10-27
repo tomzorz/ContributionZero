@@ -12,6 +12,6 @@
   <string name="shared_enter_anchor_text">Enter Anchor Number:</string>
   <string name="shared_anchor_number_text">Anchor Number</string>
   <string name="back_button_text">Back</string>
-  <string name="create_button_text">Create</string>
+  <string name="create_button_text">Create MindR</string>
   <string name="locate_button_text">Locate</string>
 </resources>

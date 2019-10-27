@@ -28,7 +28,7 @@ namespace SampleXamarin
 
         public Anchor LocalAnchor => this.AnchorNode.Anchor;
 
-        public void AddToScene(ArFragment arFragment)
+        public void AddToScene(ArFragment arFragment, string name = "")
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
@@ -36,6 +36,7 @@ namespace SampleXamarin
 
                 this.AnchorNode.Renderable = this.nodeRenderable;
                 this.AnchorNode.SetParent(arFragment.ArSceneView.Scene);
+                if (!string.IsNullOrWhiteSpace(name)) this.AnchorNode.Name = name;
 
                 TransformableNode sphere = new TransformableNode(arFragment.TransformationSystem);
                 sphere.SetParent(this.AnchorNode);
